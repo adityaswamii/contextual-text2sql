@@ -1,0 +1,5 @@
+llm:
+  backend: ollama
+  model: distil-qwen3-4b-text2sql
+  host: http://localhost:11434
+  
