@@ -1,7 +1,15 @@
 from openai import OpenAI
+import os
+from sqlalchemy import create_engine
+from mschema import SchemaEngine # TODO: figure out schema_engine from mschema repo
 
+# LLM client
 client = OpenAI(base_url="http://127.0.0.1:11434/v1", api_key="EMPTY")
 
+# Mschema for the database
+DB_PATH = "data/mini_dev_dbs/minidev/MINIDEV/dev_databases/debit_card_specializing/debit_card_specializing.sqlite"
+abs_path = os.path.abspath(DB_PATH)
+db_engine = create_engine(f"sqlite:///{abs_path}")
 mschema = """【DB_ID】 debit_card_specializing
 【Schema】
 # Table: main.customers
@@ -43,10 +51,12 @@ mschema = """【DB_ID】 debit_card_specializing
 【Foreign keys】
 """       
 
+# Question and evidence
 question = "What is the ratio of customers who pay in EUR against customers who pay in CZK?" #1471
 
 evidence = "ratio of customers who pay in EUR against customers who pay in CZK = count(Currency = 'EUR') / count(Currency = 'CZK')."
 
+# Combining the system prompt and user prompt
 system_prompt_template = """
 You are an experienced, accurate and efficient Postgres data analyst, and you are given a database schema. Please read and understand the database schema carefully, and generate an executable SQL based on the user's question and evidence. The generated SQL is protected by ```sql and ```
 
@@ -70,7 +80,7 @@ user_prompt_template = """
 """.format(db_schema=mschema,question=question, evidence=evidence)
 
 
-
+# Generating response from the LLM
 response = client.chat.completions.create(
     model="distil-qwen3-4b-text2sql",
     messages=[
@@ -86,8 +96,9 @@ response = client.chat.completions.create(
     temperature=0.9
 )
 
-# print response
+# Print response
 sql_candidate = response.choices[0].message.content
 print("SQL Candidate: ",sql_candidate)
 
+# Ideal Output: 
 # "SELECT CAST(SUM(CASE WHEN Currency = 'EUR' THEN 1 ELSE 0 END) AS REAL) / NULLIF(SUM(CASE WHEN Currency = 'CZK' THEN 1 ELSE 0 END), 0) FROM customers"
